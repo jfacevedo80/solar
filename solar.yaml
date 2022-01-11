@@ -1,0 +1,478 @@
+substitutions:
+  devicename: solar
+  friendly_name: Solar
+
+esphome:
+  name: $devicename
+  platform: ESP32
+  board: esp32dev
+  project:
+    name: jfacevedo80.solar
+    version: "1.0"
+  on_boot:
+    priority: -10
+    then:
+    - wait_until:
+        api.connected:
+    - wait_until:
+        lambda: |-
+          return id(nxxt).is_setup();
+    - logger.log: La API está conectada!
+
+# Enable logging
+logger:
+
+api:
+  id: ha
+  password: ""
+  services:
+    - service: update_nextion
+      then:
+        - lambda: 'id(nxxt)->upload_tft();'
+
+ota:
+  password: ""
+  on_begin:
+    then:
+      - lambda: |-
+          id(nxxt)->sleep(false);
+          id(nxxt)->set_component_value("page3.progreEstd",1);
+          id(nxxt)->goto_page("3");
+  on_progress:
+    then:
+      - lambda: |-
+          id(nxxt)->set_component_value("progreBarra",x);
+  on_end:
+    then:
+      - lambda: |-
+          id(nxxt)->set_component_text("progreTexto","Finalizado...");
+        
+wifi:
+  ssid: "Ocaso-IOT"
+  password: "Acv2-17.3"
+  id: wf
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Fallback Hotspot"
+    password: "Acv2-17.3"
+
+captive_portal:
+
+dashboard_import:
+  package_import_url: github://jfacevedo80/solar/solar.yaml
+        
+improv_serial:
+
+web_server:
+  port: 80
+
+uart:
+  - id: uart_2
+    rx_pin: 16 # Azul
+    tx_pin: 17 # Amarillo
+    baud_rate: 115200
+  - id: uart_3
+    rx_pin: 32 # Azul
+    tx_pin: 33 # Amarillo
+    baud_rate: 9600
+
+modbus:
+  uart_id: uart_3
+
+dallas:
+  - pin: 19  
+    update_interval: 15s
+
+time:
+  - platform: homeassistant
+    timezone: 'std 3'
+    id: hora
+    on_time_sync:
+      then:
+        - logger.log: "Se sincronizó la hora del sistema"
+        - wait_until:
+            lambda: |-
+              return id(nxxt).is_setup();
+        - lambda: |-
+            auto time = id(hora).now();
+            id(nxxt).set_nextion_rtc_time(time);
+        - logger.log: "Actualizo la hora en Nextion"
+
+globals:
+  - id: ePant
+    type: boolean
+    initial_value: 'true'
+  - id: pos
+    type: int
+    initial_value: '120'
+  - id: ePantIni
+    type: boolean
+    initial_value: 'false'
+
+display:
+  - platform: nextion
+    uart_id: uart_2  
+    id: nxxt
+    auto_wake_on_touch: true
+    tft_url: 'https://ocaso.duckdns.org:8123/local/tft/Solar.tft'
+    touch_sleep_timeout: 90
+    wake_up_page: 0
+    lambda: |-
+      it.send_command_printf("page0.eWifi.val=%d",id(wf).is_connected());
+      int pAct = id(pagAct).state;
+      if (pAct==2) {
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,10,340,20,0,65535,0,0,1,3,"Controlador Solar por:");
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,30,340,20,1,65535,0,0,1,3,"JFA");
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,60,190,20,0,65535,0,0,1,3,"Red Wifi:");
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,60,140,20,0,65535,0,0,1,3,"IP:");
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,80,190,20,1,65535,0,0,1,3,id(wSSID).state.c_str());
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,80,140,20,1,65535,0,0,1,3,id(wIP).state.c_str());
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,100,190,20,0,65535,0,0,1,3,"MAC:");
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,120,190,20,1,65535,0,0,1,3,id(wMAC).state.c_str());
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,100,140,20,0,65535,0,0,1,3,"Señal:");
+        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%.1f dB\"",210,120,140,20,1,65535,0,0,1,3,id(wRSSI).state);
+      }
+      if(id(ePantIni)==false){
+        id(ePantIni)=true;
+        id(nbPrim).set_state(id(bPrim).state,false,true);
+        id(nbSecu).set_state(id(bSecu).state,false,true);
+        id(nbResi).set_state(id(bResi).state,false,true);
+      }
+  
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: ${friendly_name} IP 
+      id: wIP
+      internal: true
+    ssid:
+      name: ${friendly_name} SSID
+      id: wSSID
+      internal: true
+    mac_address:
+      name: ${friendly_name} MAC
+      id: wMAC
+      internal: true
+
+sensor:
+  - platform: dallas
+    address: 0x043C01E0766C9F28
+    name: "${friendly_name} Temperatura Arriba"
+    on_value:
+      then:
+        - lambda: |-
+            id(tempAlta).set_state(x,true,true);
+  - platform: dallas
+    address: 0x973C01E0769EBF28
+    name: "${friendly_name} Temperatura Abajo"
+    on_value:
+      then:
+        - lambda: |-
+            id(tempBaja).set_state(x,true,true);
+  - platform: dallas
+    address: 0x383C01E0767CCD28
+    name: "${friendly_name} Temperatura Colector"
+    on_value:
+      then:
+        - lambda: |-
+            id(tempCole).set_state(x,true,true);
+  - platform: wifi_signal
+    name: "${friendly_name} Wifi RSSI"
+    update_interval: 60s
+    id: wRSSI
+    entity_category: diagnostic    
+  - platform: uptime
+    name: "${friendly_name} Uptime"
+    entity_category: diagnostic    
+  - platform: nextion
+    nextion_id: nxxt
+    id: tempCole
+    name: "Temperatura Colector"
+    component_name: page0.tempCole
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: tempAlta
+    name: "Temperatura Arriba"
+    component_name: page0.tempAlta
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: tempBaja
+    name: "Temperatura Abajo"
+    component_name: page0.tempBaja 
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: pagAct
+    name: "pagAct"
+    variable_name: pagAct
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: ndti
+    name: "DT Inicio"
+    component_name: page1.dti
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: ndtf
+    name: "DT Parada"
+    component_name: page1.dtf
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: nsmx
+    name: "Temp. Max"
+    component_name: page1.smx
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: nbypass
+    name: "Temp. Bypass"
+    component_name: page1.bypass
+    internal: true
+  - platform: adc
+    pin: 34
+    name: "${friendly_name} Presión Circ. Colector"
+    device_class: pressure
+    state_class: "measurement"
+    unit_of_measurement: MPa
+    attenuation: 11db 
+    update_interval: 15s
+  - platform: adc
+    pin: 35
+    name: "${friendly_name} Presión Circ. Secundario"
+    device_class: pressure
+    state_class: "measurement"
+    unit_of_measurement: MPa
+    attenuation: 11db 
+    update_interval: 15s
+  - platform: pzemac
+    current:
+      name: "${friendly_name} ME Corriente"
+    voltage:
+      name: "${friendly_name} ME Voltaje"
+    energy:
+      name: "${friendly_name} ME Energía"
+    power:
+      name: "${friendly_name} ME Potencia"
+    frequency:
+      name: "${friendly_name} ME Frequencia"
+    power_factor:
+      name: "${friendly_name} ME Factor de Potencia"
+    update_interval: 60s      
+
+binary_sensor:
+  - platform: status
+    name: "${friendly_name} Estado"
+    entity_category: diagnostic
+
+switch:
+  - platform: restart
+    id: swrestart
+    name: "${friendly_name} Reinicio"
+  - platform: nextion
+    nextion_id: nxxt
+    id: bRese
+    name: "Reset"
+    component_name: bRese 
+    update_interval: 4s
+    internal: true
+    on_turn_on:
+      then:
+        - switch.toggle: swrestart
+  - platform: gpio
+    name: "${friendly_name} Circuito Primario" #Rele01
+    icon: 'mdi:water-pump'
+    id: bPrim
+    pin: 
+      number: 25 #9
+      inverted: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "Voy a setear Nextion bPrim turn ON");
+            id(nbPrim).set_state(1,false,true);
+    on_turn_off:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "Voy a setear Nextion bPrim turn OFF");
+            id(nbPrim).set_state(0,false,true);
+  - platform: gpio
+    name: "${friendly_name} Circuito Secundario" #Rele02
+    icon: 'mdi:water-pump'
+    id: bSecu
+    pin: 
+      number: 26 #10
+      inverted: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "Voy a setear Nextion bSecu turn ON");
+            id(nbSecu).set_state(1,false,true);
+    on_turn_off:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "Voy a setear Nextion bSecu turn OFF");
+            id(nbSecu).set_state(0,false,true);
+  - platform: gpio
+    name: "${friendly_name} Resistencia Eléctrica" #Rele03
+    icon: 'mdi:water-boiler'
+    id: bResi
+    pin: 
+      number: 27 #11
+      inverted: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "Voy a setear Nextion bResi turn ON");
+            id(nbResi).set_state(1,false,true);
+    on_turn_off:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "Voy a setear Nextion bResi turn OFF");
+            id(nbResi).set_state(0,false,true);
+  - platform: gpio
+    name: "${friendly_name} Válvulas" #Rele04
+    icon: 'mdi:pipe-valve'
+    id: bValv
+    pin: 
+      number: 14 #10
+      inverted: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: nbPrim
+    name: "nbPrim"
+    component_name: page0.bPrim 
+    internal: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "El valor de Nextion bPrim turn ON");
+            id(bPrim).turn_on();
+    on_turn_off:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "El valor de Nextion bPrim turn OFF");
+            id(bPrim).turn_off();
+  - platform: nextion
+    nextion_id: nxxt
+    id: nbSecu
+    name: "nbSecu"
+    component_name: page0.bSecu
+    internal: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "El valor de Nextion bSecu turn ON");
+            id(bSecu).turn_on();
+    on_turn_off:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "El valor de Nextion bSecu turn OFF");
+            id(bSecu).turn_off();
+  - platform: nextion
+    nextion_id: nxxt
+    id: nbResi
+    name: "nbResi"
+    component_name: page0.bResi
+    internal: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "El valor de Nextion bResi turn ON");
+            id(bResi).turn_on();
+    on_turn_off:
+      then:
+        - lambda: |-
+            ESP_LOGI("switch", "El valor de Nextion bResi turn OFF");
+            id(bResi).turn_off();
+
+number:
+  - platform: template
+    id: dti
+    name: "${friendly_name} DT Inicio Bomba CP"
+    optimistic: true
+    min_value: 0
+    max_value: 20
+    step: 1
+    restore_value: true
+    initial_value: 8
+    entity_category: config    
+    on_value:
+      then:
+        - lambda: |-
+            id(ndti).update();
+            auto val = id(ndti).state;
+            if (x!=val){
+              ESP_LOGI("number", "El valor de Nextion dti es [%.0f] y el de Esphome dti es [%.0f]. Grabo valor en memoria",val,x);
+              id(ndti).set_state(x,true,true);
+              id(nxxt).send_command_printf("wepo page1.dti.val,0");
+              id(ndti).update();
+            }
+  - platform: template
+    id: dtf
+    name: "${friendly_name} DT Parada Bomba CP"
+    optimistic: true
+    min_value: 0
+    max_value: 20
+    step: 1
+    restore_value: true
+    initial_value: 4
+    entity_category: config    
+    on_value:
+      then:
+        - lambda: |-
+            id(ndtf).update();
+            auto val = id(ndtf).state;
+            if (x!=val){
+              ESP_LOGI("number", "El valor de Nextion dtf es [%.0f] y el de Esphome dtf es [%.0f]. Grabo valor en memoria",val,x);
+              id(ndtf).set_state(x,true,true);
+              id(nxxt).send_command_printf("wepo page1.dtf.val,4");
+              id(ndtf).update();
+            }
+  - platform: template
+    id: smx
+    name: "${friendly_name} Temp. Max. Tanque Acumulador"
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    restore_value: true
+    initial_value: 80
+    entity_category: config    
+    on_value:
+      then:
+        - lambda: |-
+            id(nsmx).update();
+            auto val = id(nsmx).state;
+            if (x!=val){
+              ESP_LOGI("number", "El valor de Nextion smx es [%.0f] y el de Esphome smx es [%.0f]. Grabo valor en memoria",val,x);
+              id(nsmx).set_state(x,true,true);
+              id(nxxt).send_command_printf("wepo page1.smx.val,0");
+              id(nsmx).update();
+            }
+  - platform: template
+    id: bypass
+    name: "${friendly_name} Temp. Bypass"
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    restore_value: true
+    initial_value: 70
+    entity_category: config    
+    on_value:
+      then:
+        - lambda: |-
+            id(nbypass).update();
+            auto val = id(nbypass).state;
+            if (x!=val){
+              ESP_LOGI("number", "El valor de Nextion bypass es [%.0f] y el de Esphome bypass es [%.0f]. Grabo valor en memoria",val,x);
+              id(nbypass).set_state(x,true,true);
+              id(nxxt).send_command_printf("wepo page1.bypass.val,0");
+              id(nbypass).update();
+            }
+
