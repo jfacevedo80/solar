@@ -118,27 +118,14 @@ display:
     tft_url: 'https://ocaso.duckdns.org:8123/local/tft/Solar.tft'
     touch_sleep_timeout: 90
     wake_up_page: 0
+    on_setup:
+      then:
+        - lambda: |-
+            id(nbPrim).set_state(id(bPrim).state,false,true);
+            id(nbSecu).set_state(id(bSecu).state,false,true);
+            id(nbResi).set_state(id(bResi).state,false,true);
     lambda: |-
       it.send_command_printf("page0.eWifi.val=%d",id(wf).is_connected());
-      int pAct = id(pagAct).state;
-      if (pAct==2) {
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,10,340,20,0,65535,0,0,1,3,"Controlador Solar por:");
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,30,340,20,1,65535,0,0,1,3,"JFA");
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,60,190,20,0,65535,0,0,1,3,"Red Wifi:");
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,60,140,20,0,65535,0,0,1,3,"IP:");
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,80,190,20,1,65535,0,0,1,3,id(wSSID).state.c_str());
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,80,140,20,1,65535,0,0,1,3,id(wIP).state.c_str());
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,100,190,20,0,65535,0,0,1,3,"MAC:");
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,120,190,20,1,65535,0,0,1,3,id(wMAC).state.c_str());
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,100,140,20,0,65535,0,0,1,3,"Señal:");
-        it.send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%.1f dB\"",210,120,140,20,1,65535,0,0,1,3,id(wRSSI).state);
-      }
-      if(id(ePantIni)==false){
-        id(ePantIni)=true;
-        id(nbPrim).set_state(id(bPrim).state,false,true);
-        id(nbSecu).set_state(id(bSecu).state,false,true);
-        id(nbResi).set_state(id(bResi).state,false,true);
-      }
   
 text_sensor:
   - platform: wifi_info
@@ -209,6 +196,22 @@ sensor:
     name: "pagAct"
     variable_name: pagAct
     internal: true
+    on_value:
+      then:
+        - lambda: | 
+            if (x==2) {
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,10,340,20,0,65535,0,0,1,3,"Controlador Solar por:");
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,30,340,20,1,65535,0,0,1,3,"JFA");
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,60,190,20,0,65535,0,0,1,3,"Red Wifi:");
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,60,140,20,0,65535,0,0,1,3,"IP:");
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,80,190,20,1,65535,0,0,1,3,id(wSSID).state.c_str());
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,80,140,20,1,65535,0,0,1,3,id(wIP).state.c_str());
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,100,190,20,0,65535,0,0,1,3,"MAC:");
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",10,120,190,20,1,65535,0,0,1,3,id(wMAC).state.c_str());
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"",210,100,140,20,0,65535,0,0,1,3,"Señal:");
+              id(nxxt).send_command_printf("xstr %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%.1f dB\"",210,120,140,20,1,65535,0,0,1,3,id(wRSSI).state);
+            }
+
   - platform: nextion
     nextion_id: nxxt
     id: ndti
@@ -239,7 +242,7 @@ sensor:
     device_class: pressure
     state_class: "measurement"
     unit_of_measurement: MPa
-    attenuation: 11db 
+    attenuation: auto 
     update_interval: 15s
   - platform: adc
     pin: 35
@@ -247,7 +250,7 @@ sensor:
     device_class: pressure
     state_class: "measurement"
     unit_of_measurement: MPa
-    attenuation: 11db 
+    attenuation: auto
     update_interval: 15s
   - platform: pzemac
     current:
