@@ -508,23 +508,15 @@ switch:
     turn_on_action:
       - lambda: |-
           id(nbModo).update();
-          auto val = id(nbModo).state;
-          if (x!=val){
-            ESP_LOGI("switch Modo", "El valor de Nextion nbModo es [%d] y el de Esphome Modo es [%d]. Grabo valor en memoria",val,x);
-            id(nbModo).set_state(x,true,true);
-            id(nxxt).send_command_printf("wepo page4.bModo.val,16");
-            id(nbModo).update();
-          }    
+          id(nbModo).set_state(1,true,true);
+          id(nxxt).send_command_printf("wepo page4.bModo.val,16");
+          id(nbModo).update();
     turn_off_action:
       - lambda: |-
           id(nbModo).update();
-          auto val = id(nbModo).state;
-          if (x!=val){
-            ESP_LOGI("switch Modo", "El valor de Nextion nbModo es [%d] y el de Esphome Modo es [%d]. Grabo valor en memoria",val,x);
-            id(nbModo).set_state(x,true,true);
-            id(nxxt).send_command_printf("wepo page4.bModo.val,16");
-            id(nbModo).update();
-          }    
+          id(nbModo).set_state(0,true,true);
+          id(nxxt).send_command_printf("wepo page4.bModo.val,16");
+          id(nbModo).update();
 
 number:
   - platform: template
