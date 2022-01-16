@@ -8,7 +8,7 @@ esphome:
   board: esp32dev
   project:
     name: jfacevedo80.solar
-    version: "1.1"
+    version: "1.2"
   on_boot:
     priority: -10
     then:
@@ -236,35 +236,134 @@ sensor:
     name: "Temp. Bypass"
     component_name: page1.bypass
     internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: me_volt
+    name: "ME Voltaje"
+    component_name: page4.me_volt
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: me_fact
+    name: "ME Factor"
+    component_name: page4.me_fact
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: me_frec
+    name: "ME Frecuencia"
+    component_name: page4.me_frec
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: me_corr
+    name: "ME Corriente"
+    component_name: page4.me_corr
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: me_pote
+    name: "ME Potencia"
+    component_name: page4.me_pote
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: me_ener
+    name: "ME Energia"
+    component_name: page4.me_ener
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: press_cp
+    name: "Presion CP"
+    component_name: page4.press_cp
+    internal: true
+  - platform: nextion
+    nextion_id: nxxt
+    id: press_cs
+    name: "Presion CS"
+    component_name: page4.press_cs
+    internal: true
+
   - platform: adc
     pin: 34
     name: "${friendly_name} Presión Circ. Colector"
     device_class: pressure
     state_class: "measurement"
-    unit_of_measurement: MPa
+    unit_of_measurement: bar
     attenuation: auto 
     update_interval: 15s
+    filters:
+      - calibrate_linear:
+        - 0.5 -> 0.0
+        - 4.0 -> 10.00
+      - throttle: 15s
+      - or:
+          - heartbeat: 300s
+          - delta: 0.04    
+    on_value:
+      then:
+        - lambda: |-
+            id(press_cp).set_state(x,true,true);
+
   - platform: adc
     pin: 35
     name: "${friendly_name} Presión Circ. Secundario"
     device_class: pressure
     state_class: "measurement"
-    unit_of_measurement: MPa
+    unit_of_measurement: bar
     attenuation: auto
     update_interval: 15s
+    filters:
+      - calibrate_linear:
+        - 0.5 -> 0.0
+        - 4.0 -> 10.00
+      - throttle: 15s
+      - or:
+          - heartbeat: 300s
+          - delta: 0.04    
+    on_value:
+      then:
+        - lambda: |-
+            id(press_cs).set_state(x,true,true);
+
   - platform: pzemac
     current:
       name: "${friendly_name} ME Corriente"
+      on_value:
+        then:
+          - lambda: |-
+              id(me_corr).set_state(x,true,true);
     voltage:
       name: "${friendly_name} ME Voltaje"
+      on_value:
+        then:
+          - lambda: |-
+              id(me_volt).set_state(x,true,true);
     energy:
       name: "${friendly_name} ME Energía"
+      on_value:
+        then:
+          - lambda: |-
+              id(me_ener).set_state(x,true,true);
     power:
       name: "${friendly_name} ME Potencia"
+      on_value:
+        then:
+          - lambda: |-
+              id(me_pote).set_state(x,true,true);
     frequency:
       name: "${friendly_name} ME Frequencia"
+      on_value:
+        then:
+          - lambda: |-
+              id(me_frec).set_state(x,true,true);
     power_factor:
       name: "${friendly_name} ME Factor de Potencia"
+      on_value:
+        then:
+          - lambda: |-
+              id(me_fact).set_state(x,true,true);
     update_interval: 60s      
 
 binary_sensor:
@@ -392,6 +491,40 @@ switch:
         - lambda: |-
             ESP_LOGI("switch", "El valor de Nextion bResi turn OFF");
             id(bResi).turn_off();
+  - platform: nextion
+    nextion_id: nxxt
+    id: nbModo
+    name: "nbModo"
+    component_name: page4.bModo
+    internal: true
+  - platform: template
+    name: "Modo"
+    lambda: |-
+      if (id(nbModo).state) {
+        return 1;
+      } else {
+        return 0;
+      }
+    turn_on_action:
+      - lambda: |-
+          id(nbModo).update();
+          auto val = id(nbModo).state;
+          if (x!=val){
+            ESP_LOGI("switch Modo", "El valor de Nextion nbModo es [%d] y el de Esphome Modo es [%d]. Grabo valor en memoria",val,x);
+            id(nbModo).set_state(x,true,true);
+            id(nxxt).send_command_printf("wepo page4.bModo.val,16");
+            id(nbModo).update();
+          }    
+    turn_off_action:
+      - lambda: |-
+          id(nbModo).update();
+          auto val = id(nbModo).state;
+          if (x!=val){
+            ESP_LOGI("switch Modo", "El valor de Nextion nbModo es [%d] y el de Esphome Modo es [%d]. Grabo valor en memoria",val,x);
+            id(nbModo).set_state(x,true,true);
+            id(nxxt).send_command_printf("wepo page4.bModo.val,16");
+            id(nbModo).update();
+          }    
 
 number:
   - platform: template
