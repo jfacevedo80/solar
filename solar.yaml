@@ -242,29 +242,34 @@ sensor:
     name: "ME Voltaje"
     component_name: page4.meVolt
     internal: true
+    precision: 1
   - platform: nextion
     nextion_id: nxxt
     id: meFact
     name: "ME Factor"
     component_name: page4.meFact
     internal: true
+    precision: 2
   - platform: nextion
     nextion_id: nxxt
     id: meFrec
     name: "ME Frecuencia"
     component_name: page4.meFrec
+    precision: 1
     internal: true
   - platform: nextion
     nextion_id: nxxt
     id: meCorr
     name: "ME Corriente"
     component_name: page4.meCorr
+    precision: 2
     internal: true
   - platform: nextion
     nextion_id: nxxt
     id: mePote
     name: "ME Potencia"
     component_name: page4.mePote
+    precision: 2
     internal: true
   - platform: nextion
     nextion_id: nxxt
@@ -277,12 +282,14 @@ sensor:
     id: pressCP
     name: "Presion CP"
     component_name: page4.pressCP
+    precision: 1
     internal: true
   - platform: nextion
     nextion_id: nxxt
     id: pressCS
     name: "Presion CS"
     component_name: page4.pressCS
+    precision: 1
     internal: true
 
   - platform: adc
