@@ -48,8 +48,11 @@ ota:
           id(nxxt)->set_component_text("progreTexto","Finalizado...");
         
 wifi:
-  ssid: "Ocaso-IOT"
-  password: "Acv2-17.3"
+  networks:
+    - ssid: !secret devolo_ssid
+      password: !secret wifi_password
+    - ssid: !secret ocaso_ssid
+      password: !secret wifi_password
   id: wf
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
@@ -610,4 +613,6 @@ number:
               id(nxxt).send_command_printf("wepo page1.bypass.val,0");
               id(nbypass).update();
             }
+
+
 
